@@ -88,6 +88,8 @@ void loop() {
 
 }
 
+//test
+
 /**
  * Handles all the data for the shooting
  */
@@ -106,11 +108,12 @@ void handleShot(){
 
 
 /**
- * Gets degrees of tilt for the gun.
+ * Gets degrees of tilt for thegun.
  * TODO: display on sight
  */
 void handleDegrees(){
   //Map input to degrees
+  //F(x)=(((A - B))/x) * (C-D)) + Offset
   int angle = floor((abs(angleDefs[2] - angleDefs[3]) * (angleDefs[0] - angleDefs[1]) / analogRead(A0))+ angleCompensate);
 
 }

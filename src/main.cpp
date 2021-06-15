@@ -96,7 +96,7 @@ void handleShot(){
   int distance = getDistance(getVelocity(timer), GyY);  //Get distance
 
   char intToDist [5]; //Create a string to copy distance to
-  //Convert to string
+  //Convert to stringa
   itoa(distance, intToDist, 10); //Convert int to char*
   char* distanceString = (char*)"Distance: ";  //Original string
   strcpy(distanceString, intToDist); // Copy  int to the distance string to get:  Distance: int
@@ -106,14 +106,12 @@ void handleShot(){
 
 
 /**
- * Gets degrees of tilt for gun.
+ * Gets degrees of tilt for the gun.
  * TODO: display on sight
  */
 void handleDegrees(){
   //Map input to degrees
-  int map_of_input = (angleDefs[0] - angleDefs[1]) / analogRead(A0);
-  int angle = floor((abs(angleDefs[2] - angleDefs[3]) * map_of_input)+ angleCompensate);
-  
+  int angle = floor((abs(angleDefs[2] - angleDefs[3]) * (angleDefs[0] - angleDefs[1]) / analogRead(A0))+ angleCompensate);
 
 }
 

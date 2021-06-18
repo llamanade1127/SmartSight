@@ -1,13 +1,30 @@
+
+//---------------------------BEGIN VARIABLES--------------------------------------
+#pragma region Variables
 #include <Arduino.h>
 #include<Wire.h>
 #include<math.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include "OLED_Driver.h"
+#include "OLED_GFX.h"
+
+//#include <Adafruit_GFX.h>
+//#include <Adafruit_SSD1306.h>
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 32 // OLED display height, in pixels
+#define SCREEN_HEIGHT 128 // OLED display height, in pixels
+#include <SPI.h>
+
+//COLORS
+#define	BLACK           0x0000
+#define	BLUE            0x001F
+#define	RED             0xF800
+#define	GREEN           0x07E0
+#define CYAN            0x07FF
+#define MAGENTA         0xF81F
+#define YELLOW          0xFFE0  
+#define WHITE           0xFFFF
 
 #define OLED_RESET 4
-Adafruit_SSD1306 display(OLED_RESET);
+OLED_GFX display = OLED_GFX();
 
 #define NUMFLAKES 10
 #define XPOS 0
@@ -15,6 +32,7 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define DELTAY 2
 #define gravityConstant 9.8
 #define DISTANCE_BETWEEN_PHOTOGATES 5
+
 //Gyroscope
 const int anglePin = A0;
 const int angleCompensate = 90; //Offset by 90  
@@ -30,17 +48,29 @@ bool isTiming = false;
 int photogateStart = 1;
 int photogateEnd = 2;
 
+
+
 void handleShot();
-void handleDegrees();
 void updateSightData();
 void setVoltage();
 void printData(String text, int x , int y, int size);
-void displayGyroscope();
 int getDistance(int velocity, int initialAngle);
 int getVelocity(int time);
 int setGyroscopePosition(int yMaxHeight, int yMinHeight, float gyro);
 void drawCrosshair();
+void DotInMiddleWithLines();
+void DotInMiddleWithoutLines();
+void DisplayLogo();
 
+//Array of void pointers that display the crosshair
+void (*crosshairDisplayModes[])() ={&drawCrosshair, &DotInMiddleWithLines, &DotInMiddleWithoutLines};
+int pointerIndex = 0;
+bool hasChanged = false;
+int8_t displayChangePin = 0;
+
+
+#pragma endregion
+//---------------------------END VARIABLES--------------------------------------
 
 void setup() {
   // put your setup code here, to run once:
@@ -57,8 +87,29 @@ void setup() {
   Serial.println("Calibrating gyro");
   //TODO: Display message for calibration
   Serial.println("Calculating done");
+  pinMode(displayChangePin, INPUT);
 
+    //Init GPIO
+    pinMode(oled_cs, OUTPUT);
+    pinMode(oled_rst, OUTPUT);
+    pinMode(oled_dc, OUTPUT);
+#if INTERFACE_4WIRE_SPI
+  //Init SPI
+  SPI.setDataMode(SPI_MODE0);
+  SPI.setBitOrder(MSBFIRST);
+  SPI.setClockDivider(SPI_CLOCK_DIV2);
+  SPI.begin();
 
+#elif INTERFACE_3WIRE_SPI
+
+  pinMode(oled_sck, OUTPUT);
+  pinMode(oled_din, OUTPUT);
+
+#endif
+  display.Device_Init();
+
+  DisplayLogo();
+  delay(100);
 }
 
 /**
@@ -73,7 +124,18 @@ ISR (TIMER1_OVF_vect){
 
 
 void loop() {
+
   // put your main code here, to run repeatedly:
+  //Only changed if the user has pressed it and hasnt changed it so we dont change each cycle
+  if(analogRead(displayChangePin) == HIGH && !hasChanged){
+    hasChanged = true;
+    pointerIndex;
+  }
+  //Reset bool if user has let go of button
+  if(analogRead(displayChangePin) == LOW && hasChanged){
+    hasChanged = false;
+  }
+
   updateSightData();
 
   //Start timing
@@ -88,17 +150,19 @@ void loop() {
 
 }
 
-//test
-
 /**
  * Handles all the data for the shooting
  */
 void handleShot(){
 
-  int distance = getDistance(getVelocity(timer), GyY);  //Get distance
+  int distance = getDistance(getVelocity(timer),  floor((abs(angleDefs[2] - angleDefs[3]) * (angleDefs[0] - angleDefs[1]) / analogRead(A0))+ angleCompensate));  //Get distance
+
+  //Reset timer
+  timer=0;
+
 
   char intToDist [5]; //Create a string to copy distance to
-  //Convert to stringa
+  //Convert to string
   itoa(distance, intToDist, 10); //Convert int to char*
   char* distanceString = (char*)"Distance: ";  //Original string
   strcpy(distanceString, intToDist); // Copy  int to the distance string to get:  Distance: int
@@ -107,43 +171,27 @@ void handleShot(){
 }
 
 
-/**
- * Gets degrees of tilt for thegun.
- * TODO: display on sight
- */
-void handleDegrees(){
-  //Map input to degrees
-  //F(x)=(((A - B))/x) * (C-D)) + Offset
-  int angle = floor((abs(angleDefs[2] - angleDefs[3]) * (angleDefs[0] - angleDefs[1]) / analogRead(A0))+ angleCompensate);
-
-}
 
 /**
  * Updates the sight including all of the values
  */
 void updateSightData(){
-  display.clearDisplay();
+  display.Clear_Screen();
   setVoltage();
-  handleDegrees(); //Sets display for degrees
-  drawCrosshair(); //Sets crosshair
 
-  display.display();
+  crosshairDisplayModes[pointerIndex]();
+
 }
 
 void setVoltage(){
 
 }
 
-void printData(String text, int x , int y, int size){
-  display.setTextSize(size);
+void printData(String text, int x , int y, FONT_SIZE size){
+  //display.Set_FontSize();
     // display.setTextColor(WHITE);
     // display.setCursor(x,y);
     // display.println(text);
-}
-
-
-void displayGyroscope(){
-
 }
 
 /**
@@ -191,7 +239,7 @@ void drawCrosshair(){
   int newXPos [2] = {(midpointX - offset) + xOffset, (midpointX + offset)  + xOffset};
 
   //Draw line
-  display.drawLine(newXPos[0], startingYPos, newXPos[1], startingYPos, WHITE);
+  display.Draw_Line(newXPos[0], startingYPos, newXPos[1], startingYPos);
 
 
   //Vertical line
@@ -206,8 +254,22 @@ void drawCrosshair(){
   //Calculate new line position using the offset
   int newYPos [2] = {(midpointY - offsetY) + yOffset, (midpointY + offsetY) + yOffset};
 
-  display.drawLine(xPos, newYPos[0], xPos, newYPos[1], WHITE);
+  display.Draw_Line(xPos, newYPos[0], xPos, newYPos[1]);
 
+}
+
+void DotInMiddleWithLines(){
+  //Circle
+  int circleRaidus = floor(1 *crosshairSize);
+  int midpoint = (SCREEN_WIDTH / 2) +xOffset;
+  int circleyPos = (SCREEN_HEIGHT / 2) +yOffset;
+  display.Draw_Circle(midpoint, circleyPos, circleRaidus);
+
+  int xLineOneXPos = (SCREEN_WIDTH * .25) + xOffset;
+}
+
+void DotInMiddleWithoutLines(){
+  
 }
 
 // /**
@@ -223,3 +285,24 @@ void drawCrosshair(){
 
 //   return arr;
 // }
+
+void DisplayLogo(void)  {
+  display.Clear_Screen();
+  int color = 0xF800;
+  int t;
+  int w = SCREEN_WIDTH/2;
+  int x = SCREEN_HEIGHT-1;
+  int y = 0;
+  int z = SCREEN_WIDTH;
+  for(t = 0 ; t <= 15; t+=1) {
+    display.Draw_Triangle(w, y, y, x, z, x);
+    x-=4;
+    y+=4;
+    z-=4;
+    color+=100;
+    display.Set_Color(color);
+  }
+}
+
+
+

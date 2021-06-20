@@ -68,7 +68,6 @@ int pointerIndex = 0;
 bool hasChanged = false;
 int8_t displayChangePin = 0;
 
-
 #pragma endregion
 //---------------------------END VARIABLES--------------------------------------
 
@@ -212,7 +211,7 @@ int getVelocity(int time){
 
 /**
  * Returns the x position that the gyroscope should be at
- * TODO: This requires more testing for which vaule gyro should be divided by
+ * TODO: This requires more testing for which vaule gyro should be divided by. Also kinda requires a gyroscope
  */
 int setGyroscopePosition(int yMaxHeight, int yMinHeight, float gyro){
   //Offsets the angle at a certain position
@@ -260,16 +259,42 @@ void drawCrosshair(){
 
 void DotInMiddleWithLines(){
   //Circle
-  int circleRaidus = floor(1 *crosshairSize);
-  int midpoint = (SCREEN_WIDTH / 2) +xOffset;
-  int circleyPos = (SCREEN_HEIGHT / 2) +yOffset;
-  display.Draw_Circle(midpoint, circleyPos, circleRaidus);
+  int16_t circleRaidus = floor(1 *crosshairSize);
+  int16_t midpoint = double(SCREEN_WIDTH / 2) + xOffset;
+  int16_t circleYPos = double(SCREEN_HEIGHT / 2) +yOffset;
+  display.Fill_Circle(midpoint, circleYPos, circleRaidus);
 
-  int xLineOneXPos = (SCREEN_WIDTH * .25) + xOffset;
+
+  //X Axis
+  int16_t length = ((double(SCREEN_WIDTH / 2) * crosshairSize) / 2) - 4;
+
+  int16_t xLineYPos =  floor(double(SCREEN_HEIGHT * .75));
+  int16_t xLineOneXPos = floor((midpoint - (length + 4)) + xOffset);
+  int16_t xLineTwoXPos = floor((midpoint + 4) + xOffset);
+
+  display.Draw_FastHLine(xLineOneXPos, xLineYPos, length);
+  display.Draw_FastHLine(xLineTwoXPos, xLineYPos, length);
+
+
+
+  //Y Axis
+  int16_t yLength = ((double(SCREEN_HEIGHT / 2) * crosshairSize) / 2) - 4;
+
+  int16_t yLineXPos =  floor(double(SCREEN_HEIGHT * .75));
+  int16_t yLineOneYPos = floor((midpoint - (yLength + 4)) + yOffset);
+  int16_t yLineTwoYPos = floor((midpoint + 4) + yOffset);
+
+  display.Draw_FastVLine(yLineXPos, yLineOneYPos, yLength);
+  display.Draw_FastVLine(yLineXPos, yLineTwoYPos, yLength);
+
 }
 
 void DotInMiddleWithoutLines(){
-  
+  int16_t xPos = ((SCREEN_WIDTH / 2) + xOffset);
+  int16_t yPos = (SCREEN_HEIGHT / 2) + yOffset;
+  int16_t raidus = (1 * crosshairSize) * 2;
+
+  display.Fill_Circle(xPos, yPos, raidus);
 }
 
 // /**
@@ -301,7 +326,10 @@ void DisplayLogo(void)  {
     z-=4;
     color+=100;
     display.Set_Color(color);
+    delay(10);
   }
+  delay(3000);
+
 }
 
 

@@ -3,6 +3,7 @@
 #include<math.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 
@@ -15,25 +16,34 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define DELTAY 2
 #define gravityConstant 9.8
 #define DISTANCE_BETWEEN_PHOTOGATES 5
+
 //Gyroscope
 const int anglePin = A0;
 const int angleCompensate = 90; //Offset by 90  
 const int angleDefs[4] = {927, 96, -90 , 90}; //Used to map input from gyroscope to a angle. First 2 values are the input map and second two are the angle map
+
+
+
+//Scope display
 int scopeOffset=0; //Ammount of pixels to offset the scope by
 int xOffset = 0;
 int yOffset = 1;
 int crosshairSize = 1; //One is default isze
 int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
+const int sizePinUp = 2;
+const int sizePindown = 4;
+bool isDown = false;
+//const int scopeDisplayPos [,] = new int[] {{10, 10}, {20,20}}
 
 int timer = 0;
 bool isTiming = false;
 int photogateStart = 1;
 int photogateEnd = 2;
 
-void handleShot();
-void handleDegrees();
+int handleDegrees();
 void updateSightData();
 void setVoltage();
+void handleShot();
 void printData(String text, int x , int y, int size);
 void displayGyroscope();
 int getDistance(int velocity, int initialAngle);
@@ -45,7 +55,8 @@ void drawCrosshair();
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
-    //Timer
+
+  //Timer
   TCCR1A = 0;
   TCCR1B = 0;
   TCCR1B |= (1<<CS12); //prescaler 256
@@ -55,6 +66,7 @@ void setup() {
   Wire.begin();
 
   Serial.println("Calibrating gyro");
+
   //TODO: Display message for calibration
   Serial.println("Calculating done");
 
@@ -86,6 +98,19 @@ void loop() {
     isTiming = false;
   }
 
+  //Sight Size stuff
+  if(digitalRead(sizePindown) == HIGH  && !isDown){
+    crosshairSize -= 0.1;
+    isDown = true;
+    updateSightData();
+  } else if (digitalRead(sizePindown) == HIGH && !isDown){
+    crosshairSize += 0.1;
+        isDown = true;
+    updateSightData();
+  } else if(digitalRead(sizePindown) == LOW  || digitalRead(sizePindown) == LOW  && isDown){
+    isDown = false;
+  }
+
 }
 
 //test
@@ -95,10 +120,10 @@ void loop() {
  */
 void handleShot(){
 
-  int distance = getDistance(getVelocity(timer), GyY);  //Get distance
+  int distance = getDistance(getVelocity(timer), handleDegrees());  //Get distance
 
   char intToDist [5]; //Create a string to copy distance to
-  //Convert to stringa
+  //Convert to string
   itoa(distance, intToDist, 10); //Convert int to char*
   char* distanceString = (char*)"Distance: ";  //Original string
   strcpy(distanceString, intToDist); // Copy  int to the distance string to get:  Distance: int
@@ -108,14 +133,14 @@ void handleShot(){
 
 
 /**
- * Gets degrees of tilt for thegun.
+ * Gets degrees of tilt for the gun.
  * TODO: display on sight
  */
-void handleDegrees(){
+int handleDegrees(){
   //Map input to degrees
   //F(x)=(((A - B))/x) * (C-D)) + Offset
   int angle = floor((abs(angleDefs[2] - angleDefs[3]) * (angleDefs[0] - angleDefs[1]) / analogRead(A0))+ angleCompensate);
-
+  return angle;
 }
 
 /**
@@ -123,15 +148,16 @@ void handleDegrees(){
  */
 void updateSightData(){
   display.clearDisplay();
+  drawCrosshair(); //Sets crosshair
   setVoltage();
   handleDegrees(); //Sets display for degrees
-  drawCrosshair(); //Sets crosshair
+
 
   display.display();
 }
 
 void setVoltage(){
-
+  
 }
 
 void printData(String text, int x , int y, int size){

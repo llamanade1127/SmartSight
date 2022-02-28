@@ -64,6 +64,7 @@ void DisplayLogo();
 
 //Array of void pointers that display the crosshair
 void (*crosshairDisplayModes[])() ={&drawCrosshair, &DotInMiddleWithLines, &DotInMiddleWithoutLines};
+
 int pointerIndex = 0;
 bool hasChanged = false;
 int8_t displayChangePin = 0;
@@ -128,7 +129,7 @@ void loop() {
   //Only changed if the user has pressed it and hasnt changed it so we dont change each cycle
   if(analogRead(displayChangePin) == HIGH && !hasChanged){
     hasChanged = true;
-    pointerIndex;
+    pointerIndex++;
   }
   //Reset bool if user has let go of button
   if(analogRead(displayChangePin) == LOW && hasChanged){
